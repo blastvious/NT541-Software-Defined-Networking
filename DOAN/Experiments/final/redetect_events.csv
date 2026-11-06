@@ -1,0 +1,13 @@
+time,event,reason,dpid,port,timeout,detail
+1793969769.829,suspect,,,,,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=31460
+1793969769.878,detected,syn_flood,1,2,30,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=31460 matched=20/20
+1793969769.878,blocked,syn_flood,1,2,30,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=31460 matched=20/20
+1793969774.224,suspect,,,,,s2:2 10.0.0.4->10.0.0.1 proto=6 pps=93918
+1793969776.685,cleared,,,,,s2:2 10.0.0.4->10.0.0.1 proto=6 pps=93918 matched=0/0
+1793969800.749,released,,,,,"flow (1, 2, '10.0.0.4', 6)"
+1793969809.950,suspect,,,,,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=27156
+1793969810.001,detected,syn_flood,1,2,60,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=27156 matched=20/20
+1793969810.002,blocked,syn_flood,1,2,60,s1:2 10.0.0.1->10.0.0.4 proto=6 pps=27156 matched=20/20
+1793969814.468,suspect,,,,,s2:2 10.0.0.4->10.0.0.1 proto=6 pps=811
+1793969816.818,cleared,,,,,s2:2 10.0.0.4->10.0.0.1 proto=6 pps=811 matched=0/0
+1793969870.877,released,,,,,"flow (1, 2, '10.0.0.4', 6)"
