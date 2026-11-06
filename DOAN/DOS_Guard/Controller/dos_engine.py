@@ -50,6 +50,8 @@ class Config:
 
     # Bao ve controller, tinh tren tung cong bien trong moi giay.
     packet_in_limit: int = 100
+    # Goi cua cung flow toi controller ngay sau khi vua cai rule khong bi tinh la qua tai.
+    flow_setup_grace: float = 2.0
     violation_limit: int = 20
 
     # Thoi gian chan: 30, 60, 120... toi da 480 giay.
@@ -111,6 +113,7 @@ class DetectionEngine:
         self.offences = {}
         self.flow_blocks = {}
         self.port_blocks = {}
+        self.recent_rules = {}
 
     # ---------- Buoc 1: thong ke flow ----------
     def on_flow_stats(self, now, stats):
@@ -192,7 +195,19 @@ class DetectionEngine:
         return [Note("cleared", "%s %s" % (_flow_text(key), detail))]
 
     # ---------- Buoc 3: source guard va gioi han packet_in ----------
-    def on_packet_in(self, now, dpid, port, mac, ip, proto=None, dst_ip=None):
+    def note_flow_installed(self, now, dpid, port, flow_id):
+        """Tra ve True neu can cai rule, False neu rule cua flow nay vua duoc cai."""
+        installed = self.recent_rules.get((dpid, port, flow_id))
+        if installed is not None and now - installed < self.cfg.flow_setup_grace:
+            return False
+        self.recent_rules[(dpid, port, flow_id)] = now
+        return True
+
+    def _in_setup_burst(self, now, where, flow_id):
+        installed = self.recent_rules.get((where[0], where[1], flow_id))
+        return installed is not None and now - installed < self.cfg.flow_setup_grace
+
+    def on_packet_in(self, now, dpid, port, mac, ip, proto=None, dst_ip=None, flow_id=None):
         """Goi cho cac goi table-miss tai cong bien."""
         where = (dpid, port)
         if where in self.port_blocks:
@@ -201,7 +216,8 @@ class DetectionEngine:
             return DROP, []
 
         counter = self._counter(now, where)
-        counter.packet_in += 1
+        if not self._in_setup_burst(now, where, flow_id):
+            counter.packet_in += 1
         if counter.packet_in > self.cfg.packet_in_limit:
             detail = "packet_in>%d/s" % self.cfg.packet_in_limit
             return DROP, [self._block_port(now, where, "packet_in_flood", detail)]
@@ -294,6 +310,9 @@ class DetectionEngine:
         for key, state in list(self.flows.items()):
             if now - state.seen > self.cfg.flow_state_ttl:
                 del self.flows[key]
+        for rule, installed in list(self.recent_rules.items()):
+            if now - installed >= self.cfg.flow_setup_grace:
+                del self.recent_rules[rule]
         for key, expires in list(self.cooldown.items()):
             if expires <= now:
                 del self.cooldown[key]

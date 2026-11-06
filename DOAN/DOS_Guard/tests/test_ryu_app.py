@@ -261,3 +261,28 @@ def test_detect_only_mode_logs_without_blocking(app):
     with open(app.event_path) as handle:
         text = handle.read()
     assert "detected" in text and "blocked" not in text
+
+
+def test_flood_reply_burst_keeps_victim_port_open_and_installs_one_rule(app):
+    s2 = connect(app, 2)
+    app.packet_in_handler(packet_in(s2, 1, arp_frame(H1_MAC, "ff:ff:ff:ff:ff:ff", H1, H4, 1)))
+    app.packet_in_handler(packet_in(s2, 2, arp_frame(H4_MAC, H1_MAC, H4, H1, 2)))
+    for _ in range(300):
+        app.packet_in_handler(packet_in(s2, 2, frame(H4_MAC, H1_MAC, H4, H1, rst_ack())))
+    assert flow_mods(s2, 110) == [] and flow_mods(s2, 100) == []
+    assert len([m for m in flow_mods(s2, 1) if "ip_proto" in m.match]) == 1
+    outs = [m for m in s2.sent if isinstance(m, parser.OFPPacketOut)]
+    assert len(outs) == 302
+
+
+def test_syn_flood_setup_burst_still_ends_in_syn_block(app):
+    s1 = connect(app, 1)
+    learn_hosts(app, s1)
+    for _ in range(300):
+        app.packet_in_handler(packet_in(s1, 2, frame(H1_MAC, H4_MAC, H1, H4, syn())))
+    assert flow_mods(s1, 110) == []
+    match = [m for m in flow_mods(s1, 1) if "ip_proto" in m.match][0].match
+    app.flow_stats_reply_handler(stats_reply(s1, [(match, 5000, 270000, 1)]))
+    for _ in range(20):
+        app.packet_in_handler(packet_in(s1, 2, frame(H1_MAC, H4_MAC, H1, H4, syn()), ofp.OFPR_ACTION))
+    assert len(flow_mods(s1, 100)) == 1

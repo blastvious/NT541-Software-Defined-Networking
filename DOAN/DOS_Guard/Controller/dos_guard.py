@@ -90,12 +90,19 @@ class DoSGuard(app_manager.RyuApp):
         if self._is_edge(datapath.id, in_port):
             source_ip, dst_ip, proto = self._addresses(pkt, ip_pkt)
             verdict, actions = self.engine.on_packet_in(
-                time.time(), datapath.id, in_port, eth.src, source_ip, proto, dst_ip)
+                time.time(), datapath.id, in_port, eth.src, source_ip, proto, dst_ip,
+                self._flow_id(eth, ip_pkt))
             self._apply(actions)
             if verdict == DROP and self.mitigate:
                 return
 
         self._forward(msg, datapath, in_port, eth, ip_pkt)
+
+    @staticmethod
+    def _flow_id(eth, ip_pkt):
+        if ip_pkt is None:
+            return (eth.src, eth.dst, eth.ethertype)
+        return (eth.src, eth.dst, eth.ethertype, ip_pkt.proto, ip_pkt.src, ip_pkt.dst)
 
     @staticmethod
     def _addresses(pkt, ip_pkt):
@@ -130,8 +137,10 @@ class DoSGuard(app_manager.RyuApp):
         out_port = table.get(eth.dst, ofproto.OFPP_FLOOD)
         actions = [parser.OFPActionOutput(out_port)]
         if out_port != ofproto.OFPP_FLOOD:
-            match = self._forward_match(parser, in_port, eth, ip_pkt)
-            self._add_flow(datapath, PRIORITY_FORWARD, match, actions, idle=FORWARD_IDLE_TIMEOUT)
+            # Trong luc flood, nhieu goi cua cung flow toi truoc khi rule co hieu luc.
+            if self.engine.note_flow_installed(time.time(), datapath.id, in_port, self._flow_id(eth, ip_pkt)):
+                match = self._forward_match(parser, in_port, eth, ip_pkt)
+                self._add_flow(datapath, PRIORITY_FORWARD, match, actions, idle=FORWARD_IDLE_TIMEOUT)
         data = msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
         datapath.send_msg(parser.OFPPacketOut(
             datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data))

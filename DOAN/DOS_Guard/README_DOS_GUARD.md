@@ -12,7 +12,7 @@ Da test logic va thong diep OpenFlow bang unit test; chua chay tren Mininet + OV
    - UDP: goi nho tu 500 pps, hoac tu 60 Mbps, trong 2 chu ky lien tiep.
 3. Gia mao va qua tai controller, tinh theo tung cong bien moi giay:
    - Moi cong gan mot cap MAC/IP; qua 20 goi sai thi chan ca cong.
-   - Qua 100 packet_in cung chan ca cong.
+   - Qua 100 packet_in cung chan ca cong, tru cac goi cua flow vua duoc cai rule trong 2 giay.
 4. Ngan chan tai cong vao, rule co thoi han 30, 60, 120... toi da 480 giay:
    - Tan cong thuong: chan (cong, IP dich, giao thuc); host van di duoc toi dich khac.
    - Gia mao: chan ca cong.
