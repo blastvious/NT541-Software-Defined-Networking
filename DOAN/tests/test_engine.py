@@ -208,3 +208,38 @@ def test_counter_reset_does_not_produce_negative_rate():
     engine = DetectionEngine()
     engine.on_flow_stats(100.0, [FlowSample(key(), 5000, 270000, 10.0)])
     assert engine.on_flow_stats(101.0, [FlowSample(key(), 5, 270, 1.0)]) == []
+
+
+def test_victim_reply_burst_during_flow_setup_does_not_block_port():
+    # Flood lam h4 gui hang tram goi RST truoc khi rule chieu ve kip cai.
+    engine = DetectionEngine()
+    flow = (H4_MAC, H1_MAC, 0x0800, PROTO_TCP, H4, H1)
+    actions = []
+    assert engine.on_packet_in(100.0, 2, 2, H4_MAC, H4, PROTO_TCP, H1, flow)[0] == ALLOW
+    assert engine.note_flow_installed(100.0, 2, 2, flow) is True
+    for index in range(500):
+        now = 100.0 + index / 1000
+        verdict, new = engine.on_packet_in(now, 2, 2, H4_MAC, H4, PROTO_TCP, H1, flow)
+        assert verdict == ALLOW
+        actions += new
+        assert engine.note_flow_installed(now, 2, 2, flow) is False
+    assert actions == [] and not engine.port_blocks
+
+
+def test_packet_in_that_never_gets_a_rule_still_blocks_port():
+    engine = DetectionEngine()
+    flow = (H1_MAC, "ff:ff:ff:ff:ff:ff", 0x0806, None, H1, None)
+    blocks = []
+    for _ in range(101):
+        blocks += engine.on_packet_in(100.0, 1, 2, H1_MAC, H1, None, None, flow)[1]
+    assert types(blocks) == [BlockPort]
+
+
+def test_packet_in_persisting_after_setup_grace_is_counted_again():
+    engine = DetectionEngine()
+    flow = (H1_MAC, H4_MAC, 0x0800, PROTO_TCP, H1, H4)
+    engine.note_flow_installed(100.0, 1, 2, flow)
+    blocks = []
+    for _ in range(101):
+        blocks += engine.on_packet_in(103.0, 1, 2, H1_MAC, H1, PROTO_TCP, H4, flow)[1]
+    assert types(blocks) == [BlockPort]
