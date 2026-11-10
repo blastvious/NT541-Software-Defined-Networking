@@ -1,5 +1,5 @@
 """
-Author: Nguyen Anh Tuan MSSV: 23521717
+Author: Group 1
 Topology for DoS Detection Project
 """
 from mininet.topo import Topo
